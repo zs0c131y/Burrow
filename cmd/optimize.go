@@ -60,12 +60,13 @@ func runOptimize() {
 	color.White("════════════════════════════════════════════════════════\n")
 
 	for i, task := range tasks {
-		statusIcon := "⚡"
-		if task.Impact == "High" {
+		var statusIcon string
+		switch task.Impact {
+		case "High":
 			statusIcon = color.RedString("⚡")
-		} else if task.Impact == "Medium" {
+		case "Medium":
 			statusIcon = color.YellowString("⚡")
-		} else {
+		default:
 			statusIcon = color.GreenString("⚡")
 		}
 

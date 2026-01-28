@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
 
 // FormatBytes converts bytes to human-readable format
@@ -142,9 +143,9 @@ func TruncateString(s string, maxLen int) string {
 
 // GetWindowsVersion returns Windows version information
 func GetWindowsVersion() string {
-	k, err := windows.OpenKey(windows.HKEY_LOCAL_MACHINE,
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE,
 		`SOFTWARE\Microsoft\Windows NT\CurrentVersion`,
-		windows.KEY_READ)
+		registry.READ)
 	if err != nil {
 		return "Unknown"
 	}

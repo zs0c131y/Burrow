@@ -3,7 +3,6 @@ package optimize
 import (
 	"fmt"
 	"os/exec"
-	"strings"
 
 	"github.com/fatih/color"
 	"github.com/zs0c131y/burrow/pkg/utils"
@@ -217,62 +216,6 @@ func (om *OptimizeManager) optimizeTelemetry() error {
 
 		stopCmd := exec.Command("sc", "stop", service)
 		stopCmd.Run()
-	}
-
-	return nil
-}
-
-func (om *OptimizeManager) disableStartupPrograms() error {
-	// Query startup programs
-	cmd := exec.Command("wmic", "startup", "get", "caption,command,location")
-	output, err := cmd.Output()
-	if err != nil {
-		return err
-	}
-
-	// Parse output
-	lines := strings.Split(string(output), "\n")
-
-	// Disable non-essential startup programs
-	// This is a simplified version - real implementation would be more sophisticated
-	for _, line := range lines {
-		if strings.Contains(strings.ToLower(line), "update") ||
-			strings.Contains(strings.ToLower(line), "assistant") {
-			// Disable these programs
-			// Implementation would go here
-		}
-	}
-
-	return nil
-}
-
-func (om *OptimizeManager) optimizeServices() error {
-	// List of services that can typically be disabled safely
-	nonEssentialServices := []string{
-		"TabletInputService",
-		"Fax",
-		"XblAuthManager",
-		"XblGameSave",
-		"XboxNetApiSvc",
-	}
-
-	for _, service := range nonEssentialServices {
-		// Check if service exists and is running
-		queryCmd := exec.Command("sc", "query", service)
-		output, err := queryCmd.Output()
-		if err != nil {
-			continue
-		}
-
-		if strings.Contains(string(output), "RUNNING") {
-			// Stop the service
-			stopCmd := exec.Command("sc", "stop", service)
-			stopCmd.Run()
-
-			// Disable the service
-			configCmd := exec.Command("sc", "config", service, "start=", "disabled")
-			configCmd.Run()
-		}
 	}
 
 	return nil
