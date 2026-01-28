@@ -203,3 +203,51 @@ func SafeDelete(path string, maxRetries int) error {
 
 	return lastErr
 }
+
+// CleanDirectory removes files from a directory, skipping locked/protected files
+// Returns: (bytes freed, files removed, skipped count, error)
+func CleanDirectory(dirPath string, maxRetries int) (int64, int, int, error) {
+	var totalSize int64
+	var filesRemoved int
+	var filesSkipped int
+
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	for _, entry := range entries {
+		fullPath := filepath.Join(dirPath, entry.Name())
+
+		if entry.IsDir() {
+			// Recursively clean subdirectories
+			size, removed, skipped, err := CleanDirectory(fullPath, maxRetries)
+			totalSize += size
+			filesRemoved += removed
+			filesSkipped += skipped
+
+			// Try to remove empty directory
+			if err == nil {
+				os.Remove(fullPath) // Ignore error if not empty
+			}
+		} else {
+			// Get file size before deletion
+			info, err := os.Stat(fullPath)
+			if err != nil {
+				filesSkipped++
+				continue
+			}
+			fileSize := info.Size()
+
+			// Try to delete file with retries
+			if err := SafeDelete(fullPath, maxRetries); err != nil {
+				filesSkipped++
+			} else {
+				totalSize += fileSize
+				filesRemoved++
+			}
+		}
+	}
+
+	return totalSize, filesRemoved, filesSkipped, nil
+}

@@ -281,18 +281,30 @@ func (cm *CleanupManager) cleanTarget(target *models.CleanupTarget) *CleanupResu
 		return result
 	}
 
-	startSize := target.Size
-	startCount := target.ItemCount
+	// Clean directory, skipping locked files
+	freedSpace, filesRemoved, filesSkipped, err := utils.CleanDirectory(target.Path, 3)
 
-	if err := utils.SafeDelete(target.Path, 3); err != nil {
+	if err != nil {
 		result.Success = false
 		result.Error = err
 		if cm.debug {
-			color.Red("\nError cleaning %s: %v", target.Name, err)
+			color.Red("\nError accessing %s: %v", target.Name, err)
 		}
 	} else {
-		result.SpaceFreed = startSize
-		result.FilesRemoved = startCount
+		result.SpaceFreed = freedSpace
+		result.FilesRemoved = filesRemoved
+
+		// Only mark as failed if nothing was cleaned
+		if filesRemoved == 0 && filesSkipped > 0 {
+			result.Success = false
+			result.Error = fmt.Errorf("%d files locked or in use (skipped)", filesSkipped)
+		} else {
+			result.Success = true
+		}
+
+		if cm.debug && filesSkipped > 0 {
+			color.Yellow("\n  %s: %d files skipped (locked/in-use)", target.Name, filesSkipped)
+		}
 	}
 
 	return result
