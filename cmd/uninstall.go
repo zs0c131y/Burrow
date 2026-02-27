@@ -14,20 +14,23 @@ var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
 	Short: "Smart app removal with leftover cleanup",
 	Long: `Intelligently uninstall applications including:
-  • Application files and executables
-  • Registry entries and keys
-  • AppData and LocalAppData remnants
-  • Start menu and desktop shortcuts
-  • Service entries
-  • Scheduled tasks
-  • Temp files and caches`,
+  - Application files and executables
+  - Registry entries and keys
+  - AppData and LocalAppData remnants
+  - Start menu and desktop shortcuts
+  - Service entries
+  - Scheduled tasks
+  - Temp files and caches`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runUninstall()
 	},
 }
 
 func runUninstall() {
-	utils.RequireAdmin()
+	if err := utils.RequireAdmin(); err != nil {
+		color.Red("Error: %v", err)
+		return
+	}
 
 	color.Cyan("\n╔════════════════════════════════════════════════════════╗")
 	color.Cyan("║             Burrow Smart App Uninstaller               ║")
@@ -50,17 +53,20 @@ func runUninstall() {
 
 	color.Green("Found %d installed applications\n", len(apps))
 
-	// Create selection menu
 	var menuItems []string
 	for _, app := range apps {
 		sizeStr := "Unknown size"
 		if app.Size > 0 {
 			sizeStr = utils.FormatBytes(app.Size)
 		}
+		publisher := app.Publisher
+		if publisher == "" {
+			publisher = "Unknown publisher"
+		}
 		menuItems = append(menuItems, fmt.Sprintf("%s (%s) - %s",
 			app.DisplayName,
 			sizeStr,
-			app.Publisher,
+			publisher,
 		))
 	}
 
@@ -70,15 +76,24 @@ func runUninstall() {
 		Size:  10,
 		Templates: &promptui.SelectTemplates{
 			Label:    "{{ . }}",
-			Active:   "▶ {{ . | cyan }}",
+			Active:   "> {{ . | cyan }}",
 			Inactive: "  {{ . }}",
-			Selected: "✓ {{ . | green }}",
+			Selected: "* {{ . | green }}",
 		},
 	}
 
 	index, _, err := prompt.Run()
 	if err != nil {
-		color.Yellow("Selection cancelled")
+		if err == promptui.ErrInterrupt || err == promptui.ErrEOF {
+			color.Yellow("Selection cancelled.")
+			return
+		}
+		color.Red("Selection error: %v", err)
+		return
+	}
+
+	if index < 0 || index >= len(apps) {
+		color.Red("Invalid selection.")
 		return
 	}
 
@@ -86,8 +101,12 @@ func runUninstall() {
 
 	fmt.Println()
 	color.White("Selected: %s\n", color.New(color.FgCyan, color.Bold).Sprint(selectedApp.DisplayName))
-	color.White("Publisher: %s", selectedApp.Publisher)
-	color.White("Version: %s", selectedApp.Version)
+	if selectedApp.Publisher != "" {
+		color.White("Publisher: %s", selectedApp.Publisher)
+	}
+	if selectedApp.Version != "" {
+		color.White("Version: %s", selectedApp.Version)
+	}
 	if selectedApp.Size > 0 {
 		color.White("Size: %s", utils.FormatBytes(selectedApp.Size))
 	}
@@ -100,7 +119,7 @@ func runUninstall() {
 	}
 
 	if !confirmAction(fmt.Sprintf("Uninstall %s and remove all leftovers?", selectedApp.DisplayName)) {
-		color.Yellow("Uninstall cancelled")
+		color.Yellow("Uninstall cancelled.")
 		return
 	}
 
@@ -116,14 +135,12 @@ func displayUninstallResult(result *uninstall.UninstallResult) {
 	color.White("\n════════════════════════════════════════════════════════\n")
 
 	if result.Success {
-		color.Green("✓ Uninstall Complete!\n")
+		color.Green("Uninstall Complete!\n")
 	} else {
-		color.Red("✗ Uninstall Failed\n")
+		color.Red("Uninstall encountered errors.\n")
 		if result.Error != nil {
 			color.Red("Error: %v\n", result.Error)
 		}
-		color.White("════════════════════════════════════════════════════════\n")
-		return
 	}
 
 	color.White("════════════════════════════════════════════════════════\n")
@@ -136,7 +153,14 @@ func displayUninstallResult(result *uninstall.UninstallResult) {
 	if len(result.LocationsCleaned) > 0 {
 		color.White("\nLocations Cleaned:\n")
 		for _, loc := range result.LocationsCleaned {
-			color.Green("  ✓ %s", loc)
+			color.Green("  * %s", loc)
+		}
+	}
+
+	if len(result.Errors) > 0 {
+		color.White("\nWarnings:\n")
+		for _, e := range result.Errors {
+			color.Yellow("  ! %s", e)
 		}
 	}
 
