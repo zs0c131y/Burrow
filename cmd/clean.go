@@ -19,16 +19,14 @@ var cleanCmd = &cobra.Command{
 	Use:   "clean",
 	Short: "Deep cleanup of temporary files, caches, and logs",
 	Long: `Performs comprehensive system cleanup including:
-  • Temporary files (Windows Temp, User Temp)
-  • Browser caches (Chrome, Firefox, Edge, Brave)
-  • Windows Update cache
-  • Application caches
-  • System logs and event logs
-  • Recycle Bin
-  • Thumbnails and icon cache
-  • Prefetch files
-  • Registry temporary entries
-  • Download folder (optional)`,
+  - Temporary files (Windows Temp, User Temp)
+  - Browser caches (Chrome, Firefox, Edge, Brave)
+  - Windows Update cache
+  - Application caches
+  - System logs and event logs
+  - Recycle Bin
+  - Thumbnails and icon cache
+  - Prefetch files`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runCleanup()
 	},
@@ -46,7 +44,10 @@ func runCleanup() {
 	}
 
 	if !dryRun {
-		utils.RequireAdmin()
+		if err := utils.RequireAdmin(); err != nil {
+			color.Red("Error: %v", err)
+			return
+		}
 	}
 
 	color.Cyan("\n╔════════════════════════════════════════════════════════╗")
@@ -54,17 +55,15 @@ func runCleanup() {
 	color.Cyan("╚════════════════════════════════════════════════════════╝\n")
 
 	if dryRun {
-		color.Yellow("🔍 DRY RUN MODE - No files will be deleted\n")
+		color.Yellow("DRY RUN MODE - No files will be deleted\n")
 	}
 
 	color.White("Scanning system for cleanup targets...\n")
 
 	startTime := time.Now()
 
-	// Initialize cleanup manager
 	manager := cleanup.NewCleanupManager(debugMode, dryRun)
 
-	// Discover cleanup targets
 	targets, err := manager.DiscoverTargets(categories)
 	if err != nil {
 		color.Red("Error discovering cleanup targets: %v", err)
@@ -72,11 +71,10 @@ func runCleanup() {
 	}
 
 	if len(targets) == 0 {
-		color.Green("✓ System is already clean!")
+		color.Green("System is already clean!")
 		return
 	}
 
-	// Display discovered targets
 	color.White("\nDiscovered Cleanup Targets:\n")
 	color.White("════════════════════════════════════════════════════════\n")
 
@@ -84,10 +82,10 @@ func runCleanup() {
 	totalFiles := 0
 
 	for _, target := range targets {
-		statusIcon := "✓"
+		statusIcon := "*"
 		statusColor := color.GreenString
 		if target.Protected {
-			statusIcon = "⚠"
+			statusIcon = "!"
 			statusColor = color.YellowString
 		}
 
@@ -116,7 +114,6 @@ func runCleanup() {
 		return
 	}
 
-	// Confirm cleanup
 	if !confirmAction("Proceed with cleanup?") {
 		color.Yellow("Cleanup cancelled.")
 		return
@@ -125,10 +122,8 @@ func runCleanup() {
 	fmt.Println()
 	color.White("Cleaning system...\n")
 
-	// Execute cleanup
 	summary := manager.ExecuteCleanup(targets)
 
-	// Display results
 	displayCleanupResults(summary, time.Since(startTime))
 }
 
@@ -155,9 +150,9 @@ func displayCleanupResults(summary *cleanup.CleanupSummary, duration time.Durati
 		color.White("\nDetailed Results:\n")
 		for _, result := range summary.Results {
 			if !result.Success {
-				color.Red("  ✗ %s: %v", result.Target.Name, result.Error)
-			} else if debugMode {
-				color.Green("  ✓ %s: %s", result.Target.Name, utils.FormatBytes(result.SpaceFreed))
+				color.Red("  x %s: %v", result.Target.Name, result.Error)
+			} else {
+				color.Green("  * %s: %s", result.Target.Name, utils.FormatBytes(result.SpaceFreed))
 			}
 		}
 	}
@@ -168,6 +163,23 @@ func displayCleanupResults(summary *cleanup.CleanupSummary, duration time.Durati
 func confirmAction(message string) bool {
 	fmt.Printf("%s (y/N): ", message)
 	var response string
-	fmt.Scanln(&response)
-	return response == "y" || response == "Y" || response == "yes"
+	if _, err := fmt.Scanln(&response); err != nil {
+		return false
+	}
+	r := trimLower(response)
+	return r == "y" || r == "yes"
+}
+
+func trimLower(s string) string {
+	result := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+			result = append(result, c)
+		}
+	}
+	return string(result)
 }

@@ -14,27 +14,32 @@ var optimizeCmd = &cobra.Command{
 	Use:   "optimize",
 	Short: "System optimization and tuning",
 	Long: `Optimize Windows system performance:
-  • Disable unnecessary startup programs
-  • Stop resource-heavy services
-  • Clean registry temporary entries
-  • Optimize network settings
-  • Clear DNS cache
-  • Rebuild system databases
-  • Optimize power settings`,
+  - Disable unnecessary startup programs
+  - Stop resource-heavy services
+  - Clean registry temporary entries
+  - Optimize network settings
+  - Clear DNS cache
+  - Rebuild system databases
+  - Optimize power settings`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runOptimize()
 	},
 }
 
 func runOptimize() {
-	utils.RequireAdmin()
+	if !dryRun {
+		if err := utils.RequireAdmin(); err != nil {
+			color.Red("Error: %v", err)
+			return
+		}
+	}
 
 	color.Cyan("\n╔════════════════════════════════════════════════════════╗")
 	color.Cyan("║             Burrow System Optimization                 ║")
 	color.Cyan("╚════════════════════════════════════════════════════════╝\n")
 
 	if dryRun {
-		color.Yellow("🔍 DRY RUN MODE - No changes will be made\n")
+		color.Yellow("DRY RUN MODE - No changes will be made\n")
 	}
 
 	startTime := time.Now()
@@ -43,7 +48,6 @@ func runOptimize() {
 
 	color.White("Analyzing system...\n")
 
-	// Get optimization recommendations
 	tasks, err := manager.AnalyzeSystem()
 	if err != nil {
 		color.Red("Error analyzing system: %v", err)
@@ -51,11 +55,10 @@ func runOptimize() {
 	}
 
 	if len(tasks) == 0 {
-		color.Green("✓ System is already optimized!")
+		color.Green("System is already optimized!")
 		return
 	}
 
-	// Display tasks
 	color.White("\nOptimization Tasks:\n")
 	color.White("════════════════════════════════════════════════════════\n")
 
@@ -63,11 +66,11 @@ func runOptimize() {
 		var statusIcon string
 		switch task.Impact {
 		case "High":
-			statusIcon = color.RedString("⚡")
+			statusIcon = color.RedString("!")
 		case "Medium":
-			statusIcon = color.YellowString("⚡")
+			statusIcon = color.YellowString("~")
 		default:
-			statusIcon = color.GreenString("⚡")
+			statusIcon = color.GreenString("*")
 		}
 
 		fmt.Printf("  %s %d. %s\n", statusIcon, i+1, task.Description)
@@ -91,10 +94,8 @@ func runOptimize() {
 	fmt.Println()
 	color.White("Optimizing system...\n")
 
-	// Execute optimization
 	results := manager.ExecuteOptimization(tasks)
 
-	// Display results
 	displayOptimizeResults(results, time.Since(startTime))
 }
 
@@ -115,14 +116,14 @@ func displayOptimizeResults(results *optimize.OptimizeResults, duration time.Dur
 	if len(results.CompletedTasks) > 0 {
 		color.White("\nCompleted Tasks:\n")
 		for _, task := range results.CompletedTasks {
-			color.Green("  ✓ %s", task)
+			color.Green("  * %s", task)
 		}
 	}
 
 	if len(results.FailedTasks) > 0 {
 		color.White("\nFailed Tasks:\n")
 		for _, task := range results.FailedTasks {
-			color.Red("  ✗ %s", task)
+			color.Red("  x %s", task)
 		}
 	}
 

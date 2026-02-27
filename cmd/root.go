@@ -36,6 +36,7 @@ All-in-one: Cleaner + Uninstaller + Monitor + Optimizer + Analyzer
 	},
 }
 
+// Execute runs the root command with the given version string.
 func Execute(version string) error {
 	appVersion = version
 	return rootCmd.Execute()
@@ -61,13 +62,13 @@ func showInteractiveMenu() {
 	banner.Print("╚════════════════════════════════════════════════════════╝\n\n")
 
 	menuItems := []string{
-		"🧹 Deep Cleanup - Remove temp files, caches, logs",
-		"🗑️  Uninstall Apps - Smart removal with leftover cleanup",
-		"⚡ Optimize System - Services, startup, registry tuning",
-		"📊 System Status - Live CPU, RAM, disk, network monitor",
-		"💾 Disk Analyzer - Visual space usage explorer",
-		"ℹ️  About & Version",
-		"❌ Exit",
+		"Deep Cleanup - Remove temp files, caches, logs",
+		"Uninstall Apps - Smart removal with leftover cleanup",
+		"Optimize System - Services, startup, registry tuning",
+		"System Status - Live CPU, RAM, disk, network monitor",
+		"Disk Analyzer - Visual space usage explorer",
+		"About & Version",
+		"Exit",
 	}
 
 	prompt := promptui.Select{
@@ -77,16 +78,20 @@ func showInteractiveMenu() {
 		HideSelected: false,
 		Templates: &promptui.SelectTemplates{
 			Label:    "{{ . }}",
-			Active:   "▶ {{ . | cyan }}",
+			Active:   "> {{ . | cyan }}",
 			Inactive: "  {{ . }}",
-			Selected: "✓ {{ . | green }}",
+			Selected: "* {{ . | green }}",
 		},
 	}
 
 	for {
 		index, _, err := prompt.Run()
 		if err != nil {
-			fmt.Printf("Menu selection error: %v\n", err)
+			if err == promptui.ErrInterrupt || err == promptui.ErrEOF {
+				color.Yellow("\nGoodbye!")
+				return
+			}
+			fmt.Fprintf(os.Stderr, "Menu selection error: %v\n", err)
 			return
 		}
 
@@ -107,12 +112,12 @@ func showInteractiveMenu() {
 			versionCmd.Run(versionCmd, []string{})
 		case 6:
 			color.Yellow("\nThank you for using Burrow!\n")
-			os.Exit(0)
+			return
 		}
 
 		fmt.Println()
 		color.Cyan("Press Enter to return to menu...")
-		fmt.Scanln()
+		_, _ = fmt.Scanln()
 		fmt.Println()
 	}
 }
